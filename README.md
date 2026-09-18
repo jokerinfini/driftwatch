@@ -36,10 +36,12 @@ Backend tests: `cd driftwatch-backend && python -m pytest -q`
 
 ### 1. Backend + drift-shim + Redis → Render (Blueprint)
 Render Dashboard → **New → Blueprint** → pick this repo. It reads [`render.yaml`](render.yaml)
-and creates `driftwatch-backend`, `driftwatch-drift-shim`, and `driftwatch-redis`. The shim
-URL and Redis are auto-wired. Then set (dashboard):
-- `driftwatch-backend`: `CORS_ALLOW_ORIGINS` = your Vercel origin; `COINGECKO_DEMO_KEY` (optional).
-- `driftwatch-drift-shim`: `COINGECKO_DEMO_KEY` (optional).
+and creates `driftwatch-backend`, `driftwatch-drift-shim`, and `driftwatch-redis` (Redis is
+auto-wired). Then in the dashboard:
+1. Open `driftwatch-drift-shim` and copy its URL (e.g. `https://driftwatch-drift-shim.onrender.com`).
+2. On `driftwatch-backend` → Environment, set `DRIFT_SHIM_URL` to that URL, and
+   `CORS_ALLOW_ORIGINS` to your Vercel origin. Save (redeploys). `COINGECKO_DEMO_KEY` optional
+   on both services.
 
 ### 2. Frontend → Vercel
 Import this repo, **Root Directory = `driftwatch-frontend`**. Set build env

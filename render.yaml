@@ -18,10 +18,8 @@ services:
       - key: MENDR_MODE
         value: emulate
       - key: DRIFT_SHIM_URL
-        fromService:            # auto-wired to the shim's URL (scheme added by the app)
-          type: web
-          name: driftwatch-drift-shim
-          property: host
+        sync: false             # after the shim deploys, paste its public URL here, e.g.
+                                # https://driftwatch-drift-shim.onrender.com (then Save = redeploy)
       - key: COINGECKO_DEMO_KEY
         sync: false             # set in the dashboard (optional; falls back to public API)
       - key: COINGECKO_VS_CURRENCY
