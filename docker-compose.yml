@@ -1,0 +1,56 @@
+# Self-contained DriftWatch demo: frontend -> backend -> (emulated Mendr) -> drift-shim
+# -> real CoinGecko. Runs the full normal -> drift -> heal loop locally with NO control/
+# data plane: the backend runs in MENDR_MODE=emulate and applies the SAME approved heal
+# that Mendr registers in production.
+#
+# For the real pitch, point the backend at your live Mendr edge instead:
+#   MENDR_MODE=real MENDR_GATEWAY_URL=https://<mendr-edge> docker compose -f docker-compose.driftwatch.yml up
+# ...and register mendr-manifests/driftwatch.mendr.yaml, routing `coingecko` -> the shim.
+#
+#   docker compose -f docker-compose.driftwatch.yml up --build
+#   open http://localhost:3002
+#
+# Flip drift from the UI, or:
+#   curl -X POST localhost:8010/drift -H 'content-type: application/json' -d '{"scenario":"all","enabled":true}'
+
+services:
+  driftwatch-redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+
+  driftwatch-drift-shim:
+    build: ./driftwatch-drift-shim
+    environment:
+      # Optional: forwarded to CoinGecko. Without it the shim uses the keyless public API
+      # (lower limits) and falls back to a static dataset if that fails.
+      COINGECKO_DEMO_KEY: ${COINGECKO_DEMO_KEY:-}
+      SHIM_CACHE_TTL_S: "45"
+    ports:
+      - "8090:8090"
+
+  driftwatch-backend:
+    build: ./driftwatch-backend
+    environment:
+      PORT: "8010"
+      MENDR_MODE: ${MENDR_MODE:-emulate}
+      MENDR_GATEWAY_URL: ${MENDR_GATEWAY_URL:-http://localhost:8080}
+      DRIFT_SHIM_URL: http://driftwatch-drift-shim:8090
+      COINGECKO_DEMO_KEY: ${COINGECKO_DEMO_KEY:-}
+      REDIS_URL: redis://driftwatch-redis:6379/0
+      CORS_ALLOW_ORIGINS: http://localhost:3002
+    ports:
+      - "8010:8010"
+    depends_on:
+      - driftwatch-redis
+      - driftwatch-drift-shim
+
+  driftwatch-frontend:
+    build:
+      context: ./driftwatch-frontend
+      args:
+        REACT_APP_API_BASE: ""   # same-origin; nginx proxies to the backend
+    ports:
+      - "3002:80"
+    depends_on:
+      - driftwatch-backend

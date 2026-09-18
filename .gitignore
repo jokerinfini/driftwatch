@@ -1,0 +1,16 @@
+# Python
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Node / CRA
+**/node_modules/
+**/build/
+
+# Secrets / local env (never commit)
+**/.env
+**/.env.local
+*.token
+
+.DS_Store

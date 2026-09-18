@@ -1,0 +1,54 @@
+# Render Blueprint - deploys DriftWatch WITHOUT Mendr yet (MENDR_MODE=emulate):
+# backend + drift-shim + Redis. The backend calls the shim directly and applies the same
+# approved heal locally, so the full normal -> drift -> heal loop works live now. Tonight,
+# flip MENDR_MODE=real + set MENDR_GATEWAY_URL to route through the real Mendr edge.
+#
+# Deploy: Render Dashboard > New > Blueprint > pick the jokerinfini/driftwatch repo.
+# Free web services sleep after 15 min idle (~1 min cold start) - keep warm with a
+# cron-job.org GET to each /health every 10 min during the demo.
+services:
+  - type: web
+    name: driftwatch-backend
+    runtime: docker
+    dockerfilePath: ./driftwatch-backend/Dockerfile
+    dockerContext: ./driftwatch-backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: MENDR_MODE
+        value: emulate
+      - key: DRIFT_SHIM_URL
+        fromService:            # auto-wired to the shim's URL (scheme added by the app)
+          type: web
+          name: driftwatch-drift-shim
+          property: host
+      - key: COINGECKO_DEMO_KEY
+        sync: false             # set in the dashboard (optional; falls back to public API)
+      - key: COINGECKO_VS_CURRENCY
+        value: inr
+      - key: CORS_ALLOW_ORIGINS
+        sync: false             # set to your Vercel origin, e.g. https://driftwatch.vercel.app
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: driftwatch-redis
+          property: connectionString
+
+  - type: web
+    name: driftwatch-drift-shim
+    runtime: docker
+    dockerfilePath: ./driftwatch-drift-shim/Dockerfile
+    dockerContext: ./driftwatch-drift-shim
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: COINGECKO_DEMO_KEY
+        sync: false
+      - key: SHIM_CACHE_TTL_S
+        value: "45"
+
+  - type: keyvalue
+    name: driftwatch-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []             # internal-only access from the services above

@@ -1,0 +1,71 @@
+apiVersion: mendr/v1
+kind: ServiceManifest
+
+# DriftWatch - the CALLER. Its `outbound` entries declare the HEALTHY CoinGecko response
+# shapes the client depends on; these ARE the drift/heal targets. Mendr's response
+# contract validator keys drift detection on these examples, resolves the upstream to the
+# driftwatch-drift-shim (a controllable CoinGecko proxy), applies the approved heal, and
+# validates before the response returns. Mendr sits ONLY on this egress, never on the
+# browser's read path.
+
+service:
+  name: driftwatch
+  baseUrl: http://driftwatch-backend:8010   # set to the hosted Render URL in production
+  namespace: default
+  description: Live crypto watchlist + price-alerter; heals CoinGecko schema drift live
+  teamEmail: driftwatch@example.com
+  healthEndpoint: /health
+  timeoutMs: 8000
+  retryCount: 1
+  auth:
+    type: NONE
+
+inbound:                    # APIs DriftWatch exposes to its own browser clients
+  - endpoint: /watchlist
+    method: GET
+    version: "1.0"
+    description: Live watchlist rows (price, rank, 24h change)
+  - endpoint: /coin/{id}
+    method: GET
+    version: "1.0"
+    description: One coin's project-health card (community/developer/trust)
+
+outbound:                   # one entry per upstream Mendr heals toward
+  - targetService: coingecko
+    endpoint: /api/v3/coins/markets
+    method: GET
+    matchType: EXACT
+    description: CoinGecko markets - the watchlist rows (route -> driftwatch-drift-shim)
+    response:               # HEALTHY markets shape (drift/heal target)
+      example:
+        - id: bitcoin
+          symbol: btc
+          name: Bitcoin
+          image: https://assets.coingecko.com/coins/images/1/large/bitcoin.png
+          current_price: 5600000
+          market_cap: 110000000000000
+          market_cap_rank: 1
+          price_change_percentage_24h: 1.5
+
+  - targetService: coingecko
+    endpoint: /api/v3/coins/{id}
+    method: GET
+    matchType: PREFIX
+    description: CoinGecko coin detail - project health (route -> driftwatch-drift-shim)
+    response:               # HEALTHY coin-detail shape (drift/heal target)
+      example:
+        id: bitcoin
+        symbol: btc
+        name: Bitcoin
+        market_data:
+          current_price:
+            inr: 5600000
+        community_data:
+          reddit_subscribers: 6127543
+          twitter_followers: 5000000
+        developer_data:
+          stars: 76697
+          forks: 36433
+        tickers:
+          - trust_score: green
+            bid_ask_spread_percentage: 0.12
